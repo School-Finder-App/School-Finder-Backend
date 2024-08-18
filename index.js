@@ -4,6 +4,7 @@ import userRouter from "./router/user_route.js";
 import cors from 'cors';
 import { toJSON } from "@reis/mongoose-to-json";
 import expressOasGenerator from "@mickeymond/express-oas-generator";
+import errorHandler from "errorhandler";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import { appStatusRouter } from "./router/appStatus.js";
@@ -21,20 +22,13 @@ import {whatsAppRouter} from "./router/whatsapp.js";
 import { locationRouter } from "./router/location.js";
 
 
-
+//make database connection
 await mongoose.connect(process.env.MONGO_URL);
 console.log('Database is connected');
 
 
 // Create an express app
 const app = express();
-
-//  instantiate express
-app.use(cors({ credentials: true, origin: '*' }));
-
-app.get("/api/v1/health", (req, res) => {
-  res.json({ status: "UP" });
-});
 
 
 //for the swagger UI
@@ -45,9 +39,20 @@ expressOasGenerator.handleResponses(app, {
 });
 
 
+//use middlewares
+// app.use(cors({ credentials: true, origin: '*' }));
+app.use(cors({
+  credentials: true,
+  origin: process.env.ALLOWED_DOMAINS?.split(',') || []
+}));
+
+app.get("/api/v1/health", (req, res) => {
+  res.json({ status: "UP" });
+});
+
+
 // instantiate dbconnection
 app.use(express.json());
-
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
@@ -62,7 +67,7 @@ app.use(
 
 
 //Apply middlewares
-app.use(cors());
+// app.use(cors());
 
 
 //Use Routes
@@ -87,6 +92,7 @@ app.use("/api/v1", formRouter);
 //  use generator
 expressOasGenerator.handleRequests();
 app.use((req, res) => res.redirect("/api-docs"));
+app.use(errorHandler({ log: false }));
 
 const reboot = async () => {
   setInterval(restartServer, process.env.INTERVAL)

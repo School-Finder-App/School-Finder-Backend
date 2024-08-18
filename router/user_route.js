@@ -1,24 +1,37 @@
-import { getUser, getUsers, login, logout, signup, token, updateUser } from "../controllers/user_controller.js";
+import { forgotPassword, getUnregisteredUser, getUser, getUsers, login, logout, resetPassword, signup, token, updateUser, verifyResetToken } from "../controllers/user_controller.js";
 import { Router } from "express";
-import { checkUserSession } from "../middlewares/auth.js";
+import { hasPermission, isAuthenticated } from "../middlewares/auth.js";
 
 
 export const userRouter = Router();
 
-userRouter.get("/users", getUsers);
+userRouter.get("/users",isAuthenticated, hasPermission('read_users'), getUsers);
 
 userRouter.post("/users/auth/session/login", login);
 
 userRouter.post("/users/auth/token/login", token);
 
-userRouter.post("/users/auth/logout", logout);
+userRouter.post("/users/auth/logout", isAuthenticated, logout);
+
+userRouter.post("/users/forgot-password", forgotPassword);
+
+userRouter.get('/users/reset-token/:id', verifyResetToken);
+
+userRouter.post('/users/reset-password', resetPassword);
 
 userRouter.post("/users/auth/signup", signup);
 
-userRouter.post("/users/auth/updateUser", updateUser);
+userRouter.patch("/users/auth/updateUser", isAuthenticated, hasPermission('update_user'), updateUser);
+ 
+userRouter.get("/users/auth/:userName", getUser);
 
-    
-userRouter.get("/users/auth/:userName", checkUserSession, getUser);
+userRouter.get("/users/unregistered-user", getUnregisteredUser);
+
+// userRouter.post('/users', isAuthenticated, hasPermission('create_user'), createUser);
+
+// userRouter.delete('/users/:id', isAuthenticated, hasPermission('delete_user'), deleteUser);
+
+
 
 // Export Router to index.js
 export default userRouter;

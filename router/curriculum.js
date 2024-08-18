@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { deleteCurriculum, getCurriculumType, getCurriculumTypes, patchCurriculumType, postCurriculumType } from "../controllers/curriculum.js";
-import { checkUserSession } from "../middlewares/auth.js";
+import { hasPermission, isAuthenticated } from "../middlewares/auth.js";
 
 
 
@@ -13,8 +13,8 @@ curriculumRouter.get('/users/curriculum', getCurriculumTypes);
 
 curriculumRouter.get('/users/curriculum/:id', getCurriculumType);
 
-curriculumRouter.post('/users/curriculum',checkUserSession, postCurriculumType);
+curriculumRouter.post('/users/curriculum',isAuthenticated, postCurriculumType);
 
-curriculumRouter.patch('/users/curriculum/:id', checkUserSession, patchCurriculumType);
+curriculumRouter.patch('/users/curriculum/:id', isAuthenticated, hasPermission, patchCurriculumType);
 
-curriculumRouter.delete('/users/curriculum/:id',checkUserSession, deleteCurriculum);
+curriculumRouter.delete('/users/curriculum/:id',isAuthenticated, hasPermission,deleteCurriculum);

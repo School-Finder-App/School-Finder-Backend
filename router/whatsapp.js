@@ -1,6 +1,6 @@
 import {Router} from "express";
 import { deleteWhatsAppLink, getWhatsAppLink, getwhatsAppLinks, patchWhatsAppLink, postWhatsAppLink } from "../controllers/whatsapp.js";
-import { checkUserSession } from "../middlewares/auth.js";
+import { hasPermission, isAuthenticated } from "../middlewares/auth.js";
 
 
 
@@ -11,8 +11,8 @@ whatsAppRouter.get('/users/whatsAppLink', getwhatsAppLinks);
 
 whatsAppRouter.get('/users/whatsAppLink/:id', getWhatsAppLink);
 
-whatsAppRouter.post('/users/whatsAppLink',checkUserSession, postWhatsAppLink);
+whatsAppRouter.post('/users/whatsAppLink',isAuthenticated, postWhatsAppLink);
 
-whatsAppRouter.patch('/users/whatsAppLink/:id', checkUserSession, patchWhatsAppLink);
+whatsAppRouter.patch('/users/whatsAppLink/:id', isAuthenticated, hasPermission,  patchWhatsAppLink);
 
-whatsAppRouter.delete('/users/whatsAppLink/:id',checkUserSession, deleteWhatsAppLink);
+whatsAppRouter.delete('/users/whatsAppLink/:id',isAuthenticated, hasPermission,  deleteWhatsAppLink);

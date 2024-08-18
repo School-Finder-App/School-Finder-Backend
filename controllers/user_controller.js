@@ -1,31 +1,36 @@
-import { User } from "../models/user_model.js";
-import { userSchema } from "../schema/user_schema.js";
+import { ResetToken, UnofficialUser, User } from "../models/user_model.js";
+import { forgotPasswordValidator, resetPasswordValidator, updateUserValidator, userSchema} from "../schema/user_schema.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken"
+import { mailTransport } from "../config/mail.js";
 
 
 
-// Login controller
+// signup controller
 export const signup = async (req, res, next) => {
-  const { error, value } = userSchema.validate(req.body);
-  if (error) {
-    return res.status(400).send(error.details[0].message);
-  }
-  const email = value.email;
-
-  const findIfUserExist = await User.findOne({ email });
-
-  if (findIfUserExist) {
-    return res.status(401).send("User has already signed up");
-  } else {
-    const hashedPassword = await bcrypt.hash(value.password, 12);
-    value.password = hashedPassword;
-
-    const addUser = await User.create(value);
-
-    req.session.user = { id: addUser.id };
-
-    return res.status(201).json({ 'message': "Registration successful" });
+  try {
+    const { error, value } = userSchema.validate(req.body);
+    if (error) {
+      return res.status(422).send(error.details[0].message);
+    }
+    const email = value.email;
+  
+    const findIfUserExist = await User.findOne({ email });
+  
+    if (findIfUserExist) {
+      return res.status(401).send("User has already signed up");
+    } else {
+      const hashedPassword = await bcrypt.hash(value.password, 12);
+      value.password = hashedPassword;
+  
+      const addUser = await User.create(value);
+  
+      req.session.user = { id: addUser.id };
+  
+      return res.status(201).json({ 'message': "Registration successful", addUser});
+    }
+  } catch (error) {
+    
   }
 };
 
@@ -114,15 +119,14 @@ export const token = async (req, res, next) => {
 
 
 
+
 // logout controller
 export const logout = async (req, res, next) => {
   try {
+    //destroy user session
     await req.session.destroy()
-    // if (error) {
-    //     return res.status(500).json("Failed to logout");
-    // }
-
-    // Clear the session cookie
+  
+    //return response
     res.status(200).json("You successfully Logged out");
 
   } catch (error) {
@@ -131,6 +135,99 @@ export const logout = async (req, res, next) => {
 };
 
 
+
+
+//Forgot Password
+export const forgotPassword = async (req, res, next) => {
+  try {
+    //validate user request
+    const { value, error } = forgotPasswordValidator.validate(req.body);
+    if (error) {
+      return res.status(422).json(error);
+    }
+    //find a user with the provided email
+    const user = await User.findOne({ email: value.email });
+    if (!user) {
+      return res.status(404).json('User not found');
+    }
+    //generate rest token
+   const resetToken= await ResetToken.create({userId: user.id})
+
+    //send reset email
+    await mailTransport.sendMail({
+      to: value.email,
+      subject: 'Reset your password',
+      // text:`Please follow the link below to reset your password.\n{process.env.FRONTEND_URL}/reset-password/${user.id}` //the page will be prepared by frontend
+      html: `<h1>Hello ${user.name}<h1>
+      <h1>Please follow the link below to reset your password.<h1>
+        <a href = "{process.env.FRONTEND_URL}/reset-password/${resetToken.id}">CLICK HERE</a>`
+    })
+
+    //return response
+    return res.status(200).json('Password Reset Mail Sent');
+    // console.log(resetToken)
+  } catch (error) {
+next(error);
+  }
+}
+
+
+
+
+export const verifyResetToken = async (req, res, next)=>{
+  try {
+    // Find Reset Token by id
+    const resetToken = await ResetToken.findById(req.params.id);
+    if (!resetToken) {
+        return res.status(404).json('Reset Token Not Found');
+    }
+    // Check if token is valid
+    if (resetToken.expired || (Date.now() >= new Date(resetToken.expiresAt).valueOf())) {
+        return res.status(409).json('Invalid Reset Token');
+    }
+    // Return response
+    res.status(200).json('Reset Token is Valid!');
+} catch (error) {
+    next(error);
+}
+};
+
+
+
+
+
+
+export const resetPassword = async (req, res, next) => {
+  try {
+      // Validate request
+      const { value, error } = resetPasswordValidator.validate(req.body);
+      if (error) {
+          return res.status(422).json(error);
+      }
+      // Find Reset Token by id
+      const resetToken = await ResetToken.findById(value.resetToken);
+      if (!resetToken) {
+          return res.status(404).json('Reset Token Not Found');
+      }
+      // Check if token is valid
+      if (resetToken.expired || (Date.now() >= new Date(resetToken.expiresAt).valueOf())) {
+          return res.status(409).json('Invalid Reset Token');
+      }
+      // Encrypt user password
+      const hashedPassword = bcrypt.hashSync(value.password, 10);
+
+      // Update user password
+      await UserModel.findByIdAndUpdate(resetToken.userId, { password: hashedPassword });
+
+      // Expire reset token
+      await ResetToken.findByIdAndUpdate(value.resetToken, { expired: true });
+
+      // Return response
+      res.status(200).json('Password Reset Successful!');
+  } catch (error) {
+      next(error);
+  }
+}
 
 
 export const getUser = async (req, res, next) => {
@@ -147,13 +244,13 @@ export const getUser = async (req, res, next) => {
 
       .select("-password")
 
-      .populate({ path: "applicationStatus"})
+      .populate({ path: "applicationStatus" })
 
-      .populate({path:"contact"})
+      .populate({ path: "contact" })
 
-      .populate({path: "curriculum"})
+      .populate({ path: "curriculum" })
 
-      .populate({ path: "facebookLink", options})
+      .populate({ path: "facebookLink", options })
 
       .populate({ path: "instagramLink", options })
 
@@ -214,7 +311,7 @@ export const getUsers = async (req, res, next) => {
 export const updateUser = async (req, res, next) => {
   try {
     const userId = req.params.id;
-    const { error, value } = userSchema.validate(req.body);
+    const { error, value } = updateUserValidator.validate(req.body);
     if (error) {
       return res.status(400).json(error.details[0].message);
     }
@@ -224,27 +321,27 @@ export const updateUser = async (req, res, next) => {
     }
 
     const updatedUser = await User.findByIdAndUpdate(userId, value, { new: true })
-    .populate({ path: "applicationStatus"})
+      .populate({ path: "applicationStatus" })
 
-    .populate({path:"contact"})
+      .populate({ path: "contact" })
 
-    .populate({path: "curriculum"})
+      .populate({ path: "curriculum" })
 
-    .populate({ path: "facebookLink", options})
+      .populate({ path: "facebookLink", options })
 
-    .populate({ path: "instagramLink", options })
+      .populate({ path: "instagramLink", options })
 
-    .populate({ path: "location", options })
+      .populate({ path: "location", options })
 
-    .populate({ path: 'school', options })
+      .populate({ path: 'school', options })
 
-    .populate({ path: 'vacancy', options })
+      .populate({ path: 'vacancy', options })
 
-    .populate({ path: 'video', options })
+      .populate({ path: 'video', options })
 
-    .populate({ path: 'websiteLink', options })
+      .populate({ path: 'websiteLink', options })
 
-    .populate({ path: 'whatsAppLink', options });
+      .populate({ path: 'whatsAppLink', options });
 
 
     if (!updatedUser) {
@@ -273,4 +370,25 @@ export const deleteUser = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+
+
+
+
+
+export const getUnregisteredUser = async(req, res, next)=>{
+ try {
+  const {nameOfSchool} = req.query;
+  // Get all events from database
+  // const schoolinfo = await UnofficialUser 
+  // .find(filter ? JSON.parse(filter) : nameOfSchool)
+  // .limit(limit ? parseInt(limit) : undefined)
+  // .skip(skip ? parseInt(skip) : undefined);
+ 
+   return res.status(404).json({nameOfSchool})
+  
+ } catch (error) {
+  next(error)
+ }
 };

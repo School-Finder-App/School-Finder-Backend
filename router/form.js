@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { checkUserSession } from "../middlewares/auth.js";
 import { deleteForm, getForm, getForms, patchForms, postForms } from "../controllers/form.js";
+import { hasPermission, isAuthenticated } from "../middlewares/auth.js";
 
 
 
@@ -10,9 +10,9 @@ formRouter.get('/users/forms',getForms);
 
 formRouter.get('/users/forms/:id', getForm);
 
-formRouter.post('/users/forms',checkUserSession, postForms);
+formRouter.post('/users/forms',isAuthenticated, postForms);
 
-formRouter.patch('/users/forms/:id',checkUserSession, patchForms);
+formRouter.patch('/users/forms/:id',isAuthenticated, hasPermission,  patchForms);
 
-formRouter.delete('/users/forms/:id',checkUserSession, deleteForm);
+formRouter.delete('/users/forms/:id',isAuthenticated, hasPermission,  deleteForm);
 

@@ -43,7 +43,11 @@ expressOasGenerator.handleResponses(app, {
 // app.use(cors({ credentials: true, origin: '*' }));
 app.use(cors({
   credentials: true,
-  origin: process.env.ALLOWED_DOMAINS?.split(',') || []
+  origin: process.env.ALLOWED_DOMAINS?.split(',') || [
+    'http://localhost:5173',
+    'https://school-finders-app.netlify.app',
+    'http://localhost:5174'
+  ]
 }));
 
 app.get("/api/v1/health", (req, res) => {
